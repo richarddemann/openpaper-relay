@@ -1,0 +1,7 @@
+node_modules/
+dist/
+sites.local.json
+.openpaper-relay/
+coverage/
+*.log
+.DS_Store

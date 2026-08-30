@@ -1,0 +1,38 @@
+{
+  "maxPdfBytes": 30000000,
+  "maxDownloadsPerHour": 12,
+  "maxSearchesPerHour": 120,
+  "extractionTimeoutMs": 30000,
+  "extractionMaxOldSpaceMb": 256,
+  "unpaywallEmail": "you@institution.edu",
+  "sites": [
+    {
+      "id": "your-university",
+      "label": "Your University Library",
+      "startUrl": "https://library.example.edu/",
+      "doiUrlTemplate": "https://resolver.example.edu/openurl?rft_id=info:doi/{doi}",
+      "allowedNetworkHosts": [
+        "library.example.edu",
+        "resolver.example.edu",
+        "sso.example.edu",
+        "publisher.example.com",
+        "pdf.publisher.example.com"
+      ],
+      "allowedPaperUrlHosts": ["publisher.example.com"],
+      "allowedPdfHosts": ["publisher.example.com", "pdf.publisher.example.com"],
+      "loginUrlPatterns": ["/login", "/saml", "/authorize"],
+      "loginPageSelectors": ["input[type=password]"],
+      "pdfLinkSelectors": [
+        "a[href$='.pdf']",
+        "a:has-text('Download PDF')",
+        "a:has-text('View PDF')"
+      ],
+      "pdfClickSelectors": [
+        "button:has-text('Download PDF')",
+        "button:has-text('View PDF')"
+      ],
+      "waitAfterNavigationMs": 1500,
+      "navigationTimeoutMs": 45000
+    }
+  ]
+}

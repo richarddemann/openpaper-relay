@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenPaper Relay"
+  short_description: "Find local or lawful paper PDFs"
+  default_prompt: "Find this paper locally first, then use configured lawful sources if needed."
