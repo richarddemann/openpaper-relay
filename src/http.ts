@@ -1,3 +1,11 @@
+export async function cancelResponseBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel("response rejected");
+  } catch {
+    // Preserve the caller's more useful status or validation error.
+  }
+}
+
 export async function boundedResponseBody(response: Response, maxBytes: number): Promise<Buffer> {
   const declaredLength = Number(response.headers.get("content-length") ?? 0);
   if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {

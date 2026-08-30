@@ -16,8 +16,8 @@
     "search-open": "tsx src/cli.ts search-open",
     "download-open": "tsx src/cli.ts download-open",
     "fetch-best": "tsx src/cli.ts fetch-best",
-    "serve": "node dist/mcp-server.js",
-    "inspect": "npx @modelcontextprotocol/inspector node dist/mcp-server.js"
+    "sites": "tsx src/cli.ts sites",
+    "serve": "node dist/mcp-server.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

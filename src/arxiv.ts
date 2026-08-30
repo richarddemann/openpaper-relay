@@ -8,7 +8,7 @@ import type {
   OpenPaperSearchResult,
   OpenPaperVersion,
 } from "./europe-pmc.js";
-import { boundedResponseBody } from "./http.js";
+import { boundedResponseBody, cancelResponseBody } from "./http.js";
 import { SecurePdfDownloader, type DownloadedPdfBytes } from "./secure-download.js";
 
 const API_ORIGIN = "https://export.arxiv.org";
@@ -221,9 +221,13 @@ export class ArxivClient {
     }
     if (!response) throw new Error("arXiv metadata request did not return a response");
     if ([301, 302, 303, 307, 308].includes(response.status)) {
+      await cancelResponseBody(response);
       throw new Error("arXiv metadata request returned an unexpected redirect");
     }
-    if (!response.ok) throw new Error(`arXiv metadata request failed with HTTP ${response.status}`);
+    if (!response.ok) {
+      await cancelResponseBody(response);
+      throw new Error(`arXiv metadata request failed with HTTP ${response.status}`);
+    }
     const bytes = await boundedResponseBody(response, MAX_METADATA_BYTES);
     const parsed = parser.parse(bytes.toString("utf8")) as AtomFeed;
     return Array.isArray(parsed.feed?.entry) ? parsed.feed.entry : [];

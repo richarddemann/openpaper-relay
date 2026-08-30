@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { request, type RequestOptions } from "node:https";
+import type { IncomingMessage } from "node:http";
 import type { LookupFunction } from "node:net";
 import { filenameFromContentDisposition, ipIsPublic, safeFilename } from "./security.js";
 import { validatePdf } from "./pdf.js";
@@ -12,6 +13,7 @@ export interface DownloadedPdfBytes {
 }
 
 type DnsResolver = (hostname: string) => Promise<Array<{ address: string; family: number }>>;
+type PinnedRequester = (url: URL, options: RequestOptions) => Promise<IncomingMessage>;
 
 function assertPublicHttpsUrl(value: string): URL {
   const url = new URL(value);
@@ -35,6 +37,7 @@ export class SecurePdfDownloader {
     private readonly timeoutMs = 30_000,
     private readonly resolver: DnsResolver = (hostname) => lookup(hostname, { all: true, verbatim: true }),
     private readonly dnsTimeoutMs = Math.min(timeoutMs, 5_000),
+    private readonly requester?: PinnedRequester,
   ) {}
 
   async download(initialUrl: string): Promise<DownloadedPdfBytes> {
@@ -44,23 +47,23 @@ export class SecurePdfDownloader {
       const status = response.statusCode ?? 0;
       if (REDIRECT_STATUSES.has(status)) {
         const location = response.headers.location;
-        response.resume();
+        response.destroy();
         if (!location) throw new Error("PDF source redirected without a location");
         url = assertPublicHttpsUrl(new URL(location, url).href);
         continue;
       }
       if (status < 200 || status >= 300) {
-        response.resume();
+        response.destroy();
         throw new Error(`PDF source returned HTTP ${status}`);
       }
       const contentType = String(response.headers["content-type"] ?? "").toLowerCase();
       if (!contentType.includes("application/pdf")) {
-        response.resume();
+        response.destroy();
         throw new Error("PDF source did not return application/pdf");
       }
       const declaredLength = Number(response.headers["content-length"] ?? 0);
       if (Number.isFinite(declaredLength) && declaredLength > this.maxPdfBytes) {
-        response.resume();
+        response.destroy();
         throw new Error("PDF source exceeds configured size limit");
       }
       const chunks: Buffer[] = [];
@@ -99,7 +102,9 @@ export class SecurePdfDownloader {
         accept: "application/pdf",
         "user-agent": "openpaper-relay/1.2",
       },
+      signal: AbortSignal.timeout(this.timeoutMs),
     };
+    if (this.requester) return this.requester(url, options);
     return new Promise<import("node:http").IncomingMessage>((resolve, reject) => {
       const outgoing = request(url, options, resolve);
       outgoing.setTimeout(this.timeoutMs, () => outgoing.destroy(new Error("PDF source request timed out")));

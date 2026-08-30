@@ -1,5 +1,5 @@
 import { lookup } from "node:dns/promises";
-import { chmod, mkdir, readFile } from "node:fs/promises";
+import { chmod, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium, type BrowserContext, type Download, type Page, type Response } from "playwright";
 import {
@@ -11,7 +11,7 @@ import {
   normalizeIdentifier,
   safeFilename,
 } from "./security.js";
-import { validatePdf } from "./pdf.js";
+import { assertDeclaredPdfLength, readPdfFileWithinLimit, validatePdf } from "./pdf.js";
 import type { SiteConfig } from "./types.js";
 
 export type BrowserFetchOutcome =
@@ -169,8 +169,7 @@ export class AuthorizedBrowser {
 
   private async readPdfResponse(response: Response, site: SiteConfig): Promise<CapturedPdf> {
     await assertAllowedUrl(response.url(), site.allowedPdfHosts);
-    const declaredLength = Number(response.headers()["content-length"] ?? 0);
-    if (declaredLength > this.maxPdfBytes) throw new Error("PDF response exceeds configured size limit");
+    assertDeclaredPdfLength(response.headers()["content-length"], this.maxPdfBytes);
     const data = await response.body();
     validatePdf(data, this.maxPdfBytes);
     return {
@@ -183,7 +182,7 @@ export class AuthorizedBrowser {
     await assertAllowedDownloadUrl(download.url(), site.allowedPdfHosts);
     const path = await download.path();
     if (!path) throw new Error("browser download did not produce a local file");
-    const data = await readFile(path);
+    const data = await readPdfFileWithinLimit(path, this.maxPdfBytes);
     validatePdf(data, this.maxPdfBytes);
     return { data, filename: safeFilename(download.suggestedFilename()) };
   }

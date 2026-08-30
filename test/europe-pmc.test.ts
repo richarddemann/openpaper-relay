@@ -20,7 +20,7 @@ const openPaper = {
         availabilityCode: "OA",
         documentStyle: "html",
         site: "Europe_PMC",
-        url: "https://europepmc.org/articles/PMC3257301",
+        url: "https://europepmc.org/articles/PMC3257301?token=do-not-return#reader",
       },
       {
         availability: "Open access",

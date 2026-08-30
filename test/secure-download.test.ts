@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Readable } from "node:stream";
 import test from "node:test";
 import { createPinnedLookup, SecurePdfDownloader } from "../src/secure-download.js";
 
@@ -36,4 +37,23 @@ test("secure downloader bounds DNS resolution time", async () => {
   );
 
   await assert.rejects(downloader.download("https://example.com/paper.pdf"), /DNS resolution timed out/);
+});
+
+test("secure downloader destroys rejected response bodies instead of draining them", async () => {
+  const redirect = new Readable({ read() {} }) as Readable & {
+    statusCode: number;
+    headers: Record<string, string>;
+  };
+  redirect.statusCode = 302;
+  redirect.headers = { location: "http://unsafe.example/paper.pdf" };
+  const downloader = new SecurePdfDownloader(
+    30_000_000,
+    30_000,
+    async () => [{ address: "93.184.216.34", family: 4 }],
+    5_000,
+    async () => redirect as never,
+  );
+
+  await assert.rejects(downloader.download("https://example.com/paper.pdf"), /must be an HTTPS URL/);
+  assert.equal(redirect.destroyed, true);
 });

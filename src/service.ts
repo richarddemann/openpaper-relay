@@ -80,7 +80,7 @@ export class PaperFetcherService {
       }
       const paper = await this.store.put(outcome.data, outcome.filename, {
         provider: `Authorized institution (${siteId})`,
-        identifier,
+        ...(doi ? { identifierKind: "doi", doi } : { identifierKind: "allowlisted_url" }),
         verification,
       });
       return {

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { boundedResponseBody } from "./http.js";
+import { boundedResponseBody, cancelResponseBody } from "./http.js";
 import { filenameFromContentDisposition, safeFilename } from "./security.js";
 import { validatePdf } from "./pdf.js";
 
@@ -116,10 +116,7 @@ function normalizeRecord(record: EuropePmcRecord): OpenPaperCandidate | null {
   const id = nonempty(record.id);
   if (!title || !source || !id) return null;
   const pmcid = nonempty(record.pmcid);
-  const landingPage =
-    array(record.fullTextUrlList?.fullTextUrl).find(
-      (location) => location.availabilityCode === "OA" && location.documentStyle?.toLowerCase() === "html",
-    )?.url ?? (pmcid ? `${PDF_ORIGIN}/articles/${pmcid}` : `${PDF_ORIGIN}/article/${source}/${id}`);
+  const landingPage = pmcid ? `${PDF_ORIGIN}/articles/${pmcid}` : `${PDF_ORIGIN}/article/${source}/${id}`;
   const metadata: OpenPaperMetadata = {
     title,
     authors: nonempty(record.authorString) ?? "",
@@ -201,7 +198,10 @@ export class EuropePmcClient {
 
     const response = await this.fetchPdf(location.url, pmcid);
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-    if (!contentType.includes("application/pdf")) throw new Error("Europe PMC did not return a PDF response");
+    if (!contentType.includes("application/pdf")) {
+      await cancelResponseBody(response);
+      throw new Error("Europe PMC did not return a PDF response");
+    }
     const data = await boundedResponseBody(response, this.maxPdfBytes);
     validatePdf(data, this.maxPdfBytes);
     return {
@@ -223,9 +223,13 @@ export class EuropePmcClient {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
+      await cancelResponseBody(response);
       throw new Error("Europe PMC metadata request returned an unexpected redirect");
     }
-    if (!response.ok) throw new Error(`Europe PMC metadata request failed with HTTP ${response.status}`);
+    if (!response.ok) {
+      await cancelResponseBody(response);
+      throw new Error(`Europe PMC metadata request failed with HTTP ${response.status}`);
+    }
     const data = JSON.parse((await boundedResponseBody(response, MAX_METADATA_BYTES)).toString("utf8")) as EuropePmcResponse;
     return Array.isArray(data.resultList?.result) ? data.resultList.result : [];
   }
@@ -240,11 +244,15 @@ export class EuropePmcClient {
       });
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         const location = response.headers.get("location");
+        await cancelResponseBody(response);
         if (!location) throw new Error("Europe PMC returned a redirect without a location");
         url = assertEuropePmcPdfUrl(new URL(location, url).href, expectedPmcid);
         continue;
       }
-      if (!response.ok) throw new Error(`Europe PMC PDF request failed with HTTP ${response.status}`);
+      if (!response.ok) {
+        await cancelResponseBody(response);
+        throw new Error(`Europe PMC PDF request failed with HTTP ${response.status}`);
+      }
       return response;
     }
     throw new Error("Europe PMC PDF request exceeded the redirect limit");

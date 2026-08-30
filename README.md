@@ -1,73 +1,75 @@
 # OpenPaper Relay
 
-OpenPaper Relay is a local MCP server that turns a DOI, PMID, PMCID, arXiv ID, or exact title into an identity-checked PDF without giving an agent a generic downloader.
+OpenPaper Relay is a local MCP server and command-line tool for retrieving one requested research paper. Give it a DOI, PMID, PMCID, arXiv ID, or exact title; it tries a short list of lawful sources in order and saves the first usable PDF.
 
-It solves a common research-agent failure: the citation is known, but the PDF is not immediately accessible. The agent can check a local library first, then relay the request through narrowly configured sources until one succeeds.
+The current source chain is:
 
-```text
-Zotero / local PDFs
-        ↓ not found
-Europe PMC → Unpaywall → arXiv
-        ↓ still unavailable, optional
-Your authorized institutional browser session
-```
+1. Europe PMC
+2. Unpaywall, when a contact email is configured
+3. arXiv
+4. an optional institutional browser adapter, for DOI requests only
 
-The relay checks each downloaded PDF against the expected DOI or title, author, and year. It discards a clear mismatch and tries the next source. A scanned or text-poor copy is labeled `inconclusive` for agent or user review instead of being called verified. It does not automate credentials or MFA, bypass CAPTCHAs or paywalls, use unauthorized mirrors, or support bulk downloading.
+Fetch-best results include an attempt log and an identity result. `verified` means the PDF's front matter matched the expected DOI or a strong title/author/year combination. `inconclusive` means there was not enough text to decide. A clear mismatch is discarded and the next source is tried. This is a practical check, not a cryptographic guarantee.
 
-## Quick start
+## Install
 
-Requirements: Node.js 22+, macOS or Linux.
+OpenPaper Relay currently runs from source and requires Node.js 22 or newer.
 
 ```bash
-npm install
-npm run check
+npm ci
 npm test
 ```
 
-Europe PMC and arXiv work without configuration. To enable Unpaywall, copy the example and replace its contact-email placeholder:
+Europe PMC and arXiv need no configuration:
 
 ```bash
-cp sites.example.json sites.local.json
 npm run fetch-best -- "10.1371/journal.ppat.1002485"
 npm run fetch-best -- "1706.03762"
 ```
 
-An ambiguous title returns `selection_required` instead of guessing:
+To add Unpaywall, create an ignored `sites.local.json` with your contact email:
+
+```json
+{
+  "unpaywallEmail": "you@example.edu",
+  "sites": []
+}
+```
+
+For an ambiguous title, search first and choose one of the returned versions:
 
 ```bash
 npm run search-open -- "Exact paper title"
-npm run download-open -- "<returned version_id>"
+npm run download-open -- "<version_id>"
 ```
 
-## Give it to an agent
+A successful fetch looks roughly like this:
 
-The bundled [`openpaper-relay` skill](skills/openpaper-relay/SKILL.md) tells an agent to:
-
-1. check Zotero when a Zotero tool or plugin is available;
-2. check only explicitly configured local PDF folders;
-3. call `fetch_best_open_paper` if no local attachment exists;
-4. confirm any identity result labeled `inconclusive` before using the paper;
-5. surface ambiguity, login requirements, and exhausted sources without bypassing controls.
-
-The Zotero integration is optional. It uses Zotero's local API through the agent's Zotero tool; OpenPaper Relay does not read or modify Zotero's database.
-Local-library lookup belongs to the agent skill, not the MCP server: Zotero needs a separate Zotero-capable tool, and PDF folders must be explicitly listed in the installed skill and accessible to that agent.
-
-For Codex, install the skill by copying its folder into your skills directory, then edit its small configuration block if you want local folders or automatic institutional fallback:
-
-```bash
-cp -R skills/openpaper-relay ~/.codex/skills/
+```json
+{
+  "status": "downloaded",
+  "paperId": "<content-derived id>",
+  "resourceUri": "paper://<content-derived id>",
+  "verification": {
+    "status": "verified",
+    "reason": "expected_doi_found"
+  }
+}
 ```
 
-## MCP interface
+Other normal results include `selection_required`, `exhausted`, `login_required`, and a downloaded PDF with `verification.status` set to `inconclusive`.
 
-Build and run the stdio server:
+By default, papers and metadata are stored under `~/.local/share/openpaper-relay`. Set `OPENPAPER_RELAY_STATE_DIR` to use another private directory.
+
+## MCP setup
+
+Build the server:
 
 ```bash
 npm run build
-npm run serve
 ```
 
-Configure an MCP client with absolute paths:
+Then add it to an MCP client as a local stdio server. Use absolute paths:
 
 ```json
 {
@@ -75,46 +77,60 @@ Configure an MCP client with absolute paths:
   "args": ["/absolute/path/to/openpaper-relay/dist/mcp-server.js"],
   "env": {
     "OPENPAPER_RELAY_CONFIG": "/absolute/path/to/openpaper-relay/sites.local.json",
-    "OPENPAPER_RELAY_STATE_DIR": "/absolute/private/state/directory"
+    "OPENPAPER_RELAY_STATE_DIR": "/absolute/path/to/private/openpaper-state"
   }
 }
 ```
 
-Main tools:
+The useful tools are `fetch_best_open_paper`, `search_open_papers`, `download_open_paper`, `read_paper_text`, and the advanced `fetch_authorized_paper`.
 
-- `fetch_best_open_paper({ query, site_id? })` — sequential fallback, identity checks, and an attempt log.
-- `search_open_papers({ query })` — metadata and selectable open versions.
-- `download_open_paper({ version_id })` — one version returned by search.
-- `fetch_authorized_paper({ identifier, site_id })` — one paper through a configured institutional session.
-- `read_paper_text({ paper_id })` and `paper://{paper_id}` — bounded text or the stored PDF.
+This server is designed for local stdio use. It has no user authentication or tenant isolation, so do not expose it through an unauthenticated HTTP, WebSocket, or TCP wrapper.
 
-## Add your university or another source
+## Agent skill and Zotero
 
-For a university page where an authorized user enters a DOI and downloads a PDF:
+The repository includes an [agent skill](skills/openpaper-relay/SKILL.md). It tells an agent to check Zotero or explicitly listed PDF folders before fetching another copy, and to stop on ambiguous or inconclusive results instead of guessing.
 
-1. copy `sites.example.json` to the ignored `sites.local.json`;
-2. replace every `example.edu`/`example.com` URL and hostname—the example site will not work unchanged;
-3. add the exact resolver, login, publisher, and PDF hostnames;
-4. add the selectors for the site's PDF link or button;
-5. install the browser once with `npx playwright install chromium`;
-6. run `npm run login -- <site_id>` and complete the normal login/MFA yourself;
-7. pass that `site_id` for a DOI query only when institutional fallback is wanted.
+Zotero is not built into this server. The agent needs a separate Zotero-capable tool, and Zotero Desktop needs to be available to that tool. To install the skill in Codex:
 
-In the bundled skill, set `institutional_fallback: auto` if a configured site should be accepted as the last fallback without asking on every paper.
+```bash
+cp -R skills/openpaper-relay ~/.codex/skills/
+```
 
-The adapter is trusted configuration, not agent-generated browsing logic. The agent calls the narrow tool and never receives cookies, credentials, signed URLs, or arbitrary filesystem access. See [ADAPTING.md](ADAPTING.md) for the browser-adapter walkthrough and [ADDING_SOURCES.md](ADDING_SOURCES.md) for adding a lawful API/repository source.
+Edit the small configuration block in the installed skill if you want to add local PDF directories or a configured institutional site.
 
-## Security
+## Institutional adapters
 
-- PDFs, metadata, and browser profiles remain in a private local state directory.
-- URLs require HTTPS and exact host policies; private/reserved IPs and unsafe redirects are rejected.
-- Repository downloads are DNS-checked and pinned to a public address.
-- Responses are size-bounded and must pass PDF content, signature, and end-marker validation.
-- Downloaded text is checked against expected DOI or title/author/year evidence before the PDF is accepted as verified; clear mismatches are discarded.
-- Identity-checking uses a private temporary file that is removed immediately and never persists extracted verification text.
-- Opaque version and paper IDs are used instead of caller-provided download URLs or file paths.
-- Persistent per-source search/download limits and cross-process locks prevent uncontrolled retries.
+Institutional access is optional and intended for people comfortable maintaining a small browser adapter. The checked-in `sites.example.json` is deliberately nonfunctional; every example hostname and selector must be replaced.
 
-Publisher, repository, and institutional terms still apply. Retrieve only papers the user requested and is authorized to access.
+The short version:
 
-License: [MIT](LICENSE).
+1. Copy `sites.example.json` to the ignored `sites.local.json`.
+2. Add only the exact hosts used by your resolver, login flow, article pages, and PDF downloads.
+3. Add selectors for the site's PDF link or download button.
+4. Install the browser with `npx playwright install chromium`.
+5. Run `npm run login -- "your-university"` and complete the normal login and MFA yourself.
+6. Check the loaded site IDs with `npm run sites`.
+7. Test one DOI with `npm run fetch -- "10.xxxx/example" "your-university"`.
+
+The adapter reuses its own local browser profile. It does not automate passwords, MFA, or CAPTCHAs, and it does not return cookies or download URLs to the agent. An allowlisted URL can also be fetched directly, but without a DOI or other expected metadata its identity result will be `inconclusive`.
+
+Read [ADAPTING.md](ADAPTING.md) before adding a site. The host list is a security boundary: keep it narrow and review changes like code.
+
+## Security notes
+
+- Open-source PDF downloads use HTTPS, public-IP DNS checks, redirect validation, and a streaming byte limit.
+- Browser adapters allow only configured HTTPS hosts and block WebSockets and service workers. Inline PDF responses require a valid declared size; completed browser downloads are size-checked before Node reads them. Chromium may still create its own temporary download before that check, so configured PDF hosts must be trusted.
+- Stored paper IDs are content hashes; callers cannot supply filesystem paths or arbitrary download URLs.
+- State directories and files are created with owner-only permissions. Put a custom state directory somewhere controlled by your OS account, not in a shared writable folder.
+- PDF text extraction runs in a separate, time- and memory-limited process. It is isolation, not a full operating-system sandbox.
+- Titles, metadata, and PDF text are untrusted content. The bundled MCP instructions and skill tell agents never to follow instructions found inside a paper.
+
+See [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
+
+## Scope
+
+This is not a scholarly search engine, a Zotero replacement, a paywall bypass, or a bulk downloader. It will not find every paper. Its job is narrower: give a local agent a controlled way to try a few configured sources for one paper without granting arbitrary network or filesystem access.
+
+Coverage is intentionally small. See [ADDING_SOURCES.md](ADDING_SOURCES.md) if you want to add another open repository or lawful metadata service.
+
+MIT licensed. See [LICENSE](LICENSE).

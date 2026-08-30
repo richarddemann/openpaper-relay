@@ -6,7 +6,7 @@ import type {
   OpenPaperSearchResult,
   OpenPaperVersion,
 } from "./europe-pmc.js";
-import { boundedResponseBody } from "./http.js";
+import { boundedResponseBody, cancelResponseBody } from "./http.js";
 import { SecurePdfDownloader, type DownloadedPdfBytes } from "./secure-download.js";
 
 const API_ORIGIN = "https://api.unpaywall.org";
@@ -114,7 +114,9 @@ function normalize(record: UnpaywallRecord): OpenPaperCandidate | null {
     label: versionLabel(location),
     license: location.license?.trim() || null,
     source: "Unpaywall",
-    landingPage: httpsUrl(location.url_for_landing_page) ?? `https://doi.org/${doi}`,
+    // Provider landing URLs can contain short-lived access tokens. The DOI URL
+    // is stable, useful to the caller, and does not disclose the download route.
+    landingPage: `https://doi.org/${doi}`,
   }));
   return { candidateId: `unpaywall:${doi}`, metadata, versions };
 }
@@ -181,8 +183,14 @@ export class UnpaywallClient {
     const url = new URL(`/v2/${encodeURIComponent(doi)}`, API_ORIGIN);
     url.searchParams.set("email", this.email);
     const response = await this.request(url);
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`Unpaywall DOI request failed with HTTP ${response.status}`);
+    if (response.status === 404) {
+      await cancelResponseBody(response);
+      return null;
+    }
+    if (!response.ok) {
+      await cancelResponseBody(response);
+      throw new Error(`Unpaywall DOI request failed with HTTP ${response.status}`);
+    }
     return await boundedJson(response) as UnpaywallRecord;
   }
 
@@ -192,21 +200,24 @@ export class UnpaywallClient {
     url.searchParams.set("is_oa", "true");
     url.searchParams.set("email", this.email);
     const response = await this.request(url);
-    if (!response.ok) throw new Error(`Unpaywall title request failed with HTTP ${response.status}`);
+    if (!response.ok) {
+      await cancelResponseBody(response);
+      throw new Error(`Unpaywall title request failed with HTTP ${response.status}`);
+    }
     const data = await boundedJson(response) as UnpaywallSearchResponse;
     return (Array.isArray(data.results) ? data.results : []).flatMap((result) => result.response ? [result.response] : []);
   }
 
-  private request(url: URL): Promise<Response> {
-    return this.fetcher(url, {
+  private async request(url: URL): Promise<Response> {
+    const response = await this.fetcher(url, {
       redirect: "manual",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: { accept: "application/json" },
-    }).then((response) => {
-      if ([301, 302, 303, 307, 308].includes(response.status)) {
-        throw new Error("Unpaywall metadata request returned an unexpected redirect");
-      }
-      return response;
     });
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      await cancelResponseBody(response);
+      throw new Error("Unpaywall metadata request returned an unexpected redirect");
+    }
+    return response;
   }
 }

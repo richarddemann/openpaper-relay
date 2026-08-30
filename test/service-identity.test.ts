@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -91,6 +91,53 @@ test("returns one clearly labeled inconclusive copy only after trying every open
     assert.equal(result.status, "downloaded");
     if (result.status === "downloaded") assert.equal(result.verification.status, "inconclusive");
     assert.deepEqual(events, ["search:First", "download:First", "search:Second", "download:Second"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("institutional provenance does not retain a caller URL", async () => {
+  const root = await mkdtemp(join(tmpdir(), "openpaper-service-provenance-"));
+  try {
+    const service = new PaperFetcherService({
+      ...config,
+      sites: [{
+        id: "library",
+        label: "Library",
+        startUrl: "https://library.example/",
+        doiUrlTemplate: "https://library.example/resolve?doi={doi}",
+        allowedNetworkHosts: ["library.example"],
+        allowedPaperUrlHosts: ["library.example"],
+        allowedPdfHosts: ["library.example"],
+        loginUrlPatterns: [],
+        loginPageSelectors: [],
+        pdfLinkSelectors: [],
+        pdfClickSelectors: [],
+        waitAfterNavigationMs: 0,
+        navigationTimeoutMs: 1_000,
+      }],
+    }, root);
+    (service as unknown as { browser: { fetch: Function } }).browser = {
+      fetch: async () => ({ status: "downloaded", data: makePdf("institution copy"), filename: "paper.pdf" }),
+    };
+    (service as unknown as { verifier: { verify: Function } }).verifier = {
+      verify: async () => ({
+        status: "inconclusive",
+        method: "none",
+        doiMatched: null,
+        titleTokenCoverage: null,
+        authorMatched: null,
+        yearMatched: null,
+        reason: "insufficient_identity_evidence",
+      }),
+    };
+
+    const result = await service.fetch("https://library.example/article?token=do-not-store#session", "library");
+    assert.equal(result.status, "downloaded");
+    if (result.status !== "downloaded") return;
+    const metadata = await readFile(join(root, "metadata", `${result.paperId}.json`), "utf8");
+    assert.doesNotMatch(metadata, /do-not-store|library\.example\/article/);
+    assert.match(metadata, /"identifierKind": "allowlisted_url"/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

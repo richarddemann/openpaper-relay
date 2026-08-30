@@ -16,7 +16,7 @@ const record = {
       version: "acceptedVersion",
       license: "cc-by",
       repository_institution: "Example University",
-      url_for_landing_page: "https://repository.example.edu/items/123",
+      url_for_landing_page: "https://repository.example.edu/items/123?token=secret#reader",
       url_for_pdf: "https://repository.example.edu/paper.pdf",
     },
     {
@@ -53,7 +53,7 @@ test("Unpaywall DOI lookup returns normalized legal PDF versions", async () => {
       label: "Accepted manuscript — Example University",
       license: "cc-by",
       source: "Unpaywall",
-      landingPage: "https://repository.example.edu/items/123",
+      landingPage: "https://doi.org/10.1234/example",
     },
   ]);
 });
