@@ -60,7 +60,7 @@ To install the skill in Codex, copy the `skills/openpaper-relay` folder into `~/
 
 OpenPaper Relay runs on the user's own computer. It has no hosted service, telemetry, or connection to the maintainer's machine. The published repository contains none of the maintainer's PDFs, accounts, browser session, or local configuration.
 
-Each installation keeps its PDFs, settings, and optional institutional browser session locally. The repository ignores its standard local config and state paths; keep any custom state directory out of version control. The tool sends the requested paper identifier to the sources the user has enabled and downloads the selected PDF from them.
+Each installation keeps its PDFs, settings, and optional institutional browser session locally. Default state lives outside the repository, and `sites.local.json` is ignored; keep any custom state directory out of version control. The requested paper identifier may be sent to the built-in Europe PMC and arXiv sources and, when enabled, Unpaywall or a configured institutional site.
 
 Use the MCP server locally. Do not expose it as a public network service.
 
