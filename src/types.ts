@@ -1,3 +1,5 @@
+import type { PaperIdentityVerification } from "./paper-identity.js";
+
 export interface SiteConfig {
   id: string;
   label: string;
@@ -31,6 +33,7 @@ export type FetchResult =
       resourceUri: string;
       filename: string;
       sizeBytes: number;
+      verification: PaperIdentityVerification;
     }
   | {
       status: "login_required";
@@ -41,6 +44,12 @@ export type FetchResult =
       status: "not_found";
       siteId: string;
       message: string;
+    }
+  | {
+      status: "verification_failed";
+      siteId: string;
+      message: string;
+      verification: PaperIdentityVerification;
     };
 
 export interface StoredPaper {

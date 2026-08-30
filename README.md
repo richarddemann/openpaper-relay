@@ -1,6 +1,6 @@
 # OpenPaper Relay
 
-OpenPaper Relay is a local MCP server that turns a DOI, PMID, PMCID, arXiv ID, or exact title into a verified PDF without giving an agent a generic downloader.
+OpenPaper Relay is a local MCP server that turns a DOI, PMID, PMCID, arXiv ID, or exact title into an identity-checked PDF without giving an agent a generic downloader.
 
 It solves a common research-agent failure: the citation is known, but the PDF is not immediately accessible. The agent can check a local library first, then relay the request through narrowly configured sources until one succeeds.
 
@@ -12,7 +12,7 @@ Europe PMC → Unpaywall → arXiv
 Your authorized institutional browser session
 ```
 
-The relay stops after the first verified PDF and returns an attempt log when nothing works. It does not automate credentials or MFA, bypass CAPTCHAs or paywalls, use unauthorized mirrors, or support bulk downloading.
+The relay checks each downloaded PDF against the expected DOI or title, author, and year. It discards a clear mismatch and tries the next source. A scanned or text-poor copy is labeled `inconclusive` for agent or user review instead of being called verified. It does not automate credentials or MFA, bypass CAPTCHAs or paywalls, use unauthorized mirrors, or support bulk downloading.
 
 ## Quick start
 
@@ -46,7 +46,8 @@ The bundled [`openpaper-relay` skill](skills/openpaper-relay/SKILL.md) tells an 
 1. check Zotero when a Zotero tool or plugin is available;
 2. check only explicitly configured local PDF folders;
 3. call `fetch_best_open_paper` if no local attachment exists;
-4. surface ambiguity, login requirements, and exhausted sources without bypassing controls.
+4. confirm any identity result labeled `inconclusive` before using the paper;
+5. surface ambiguity, login requirements, and exhausted sources without bypassing controls.
 
 The Zotero integration is optional. It uses Zotero's local API through the agent's Zotero tool; OpenPaper Relay does not read or modify Zotero's database.
 Local-library lookup belongs to the agent skill, not the MCP server: Zotero needs a separate Zotero-capable tool, and PDF folders must be explicitly listed in the installed skill and accessible to that agent.
@@ -81,7 +82,7 @@ Configure an MCP client with absolute paths:
 
 Main tools:
 
-- `fetch_best_open_paper({ query, site_id? })` — sequential fallback with an attempt log.
+- `fetch_best_open_paper({ query, site_id? })` — sequential fallback, identity checks, and an attempt log.
 - `search_open_papers({ query })` — metadata and selectable open versions.
 - `download_open_paper({ version_id })` — one version returned by search.
 - `fetch_authorized_paper({ identifier, site_id })` — one paper through a configured institutional session.
@@ -97,7 +98,7 @@ For a university page where an authorized user enters a DOI and downloads a PDF:
 4. add the selectors for the site's PDF link or button;
 5. install the browser once with `npx playwright install chromium`;
 6. run `npm run login -- <site_id>` and complete the normal login/MFA yourself;
-7. pass that `site_id` only when institutional fallback is wanted.
+7. pass that `site_id` for a DOI query only when institutional fallback is wanted.
 
 In the bundled skill, set `institutional_fallback: auto` if a configured site should be accepted as the last fallback without asking on every paper.
 
@@ -109,6 +110,8 @@ The adapter is trusted configuration, not agent-generated browsing logic. The ag
 - URLs require HTTPS and exact host policies; private/reserved IPs and unsafe redirects are rejected.
 - Repository downloads are DNS-checked and pinned to a public address.
 - Responses are size-bounded and must pass PDF content, signature, and end-marker validation.
+- Downloaded text is checked against expected DOI or title/author/year evidence before the PDF is accepted as verified; clear mismatches are discarded.
+- Identity-checking uses a private temporary file that is removed immediately and never persists extracted verification text.
 - Opaque version and paper IDs are used instead of caller-provided download URLs or file paths.
 - Persistent per-source search/download limits and cross-process locks prevent uncontrolled retries.
 

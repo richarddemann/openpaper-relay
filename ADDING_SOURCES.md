@@ -1,6 +1,8 @@
 # Adding Another Authorized DOI/Title Source
 
-The Europe PMC, Unpaywall, and arXiv implementations are references for sources that accept a DOI, identifier, or title; return metadata and available PDF versions; and download one selected version. `OpenPaperResolver` runs them in array order and stops at the first verified download for an exact identifier.
+The Europe PMC, Unpaywall, and arXiv implementations are references for sources that accept a DOI, identifier, or title; return metadata and available PDF versions; and download one selected version. `OpenPaperResolver` runs them in array order and stops at the first identity-verified download for an exact identifier.
+
+Metadata accuracy matters: DOI is the strongest identity signal, while title matches require author or year corroboration. If your source omits those fields, downloads may correctly be labeled `inconclusive` for manual review.
 
 Use this pattern only for a source whose API or terms authorize the access. Do not add mirror discovery, access-control bypass, CAPTCHA handling, credential automation, or a generic URL downloader.
 

@@ -6,12 +6,12 @@ import { configPath, stateRoot } from "./paths.js";
 import { PaperFetcherService } from "./service.js";
 
 const instructions =
-  "For one DOI, PMID, PMCID, arXiv ID, or exact title, use fetch_best_open_paper first. It tries configured legal sources in order, stops at the first verified PDF, and reports each failed attempt. If it returns selection_required, present the candidates and use download_open_paper only with the user's selected version_id. Pass site_id only when the user wants their configured institutional access tried after open sources fail. Never use these tools for bulk retrieval, credentials, MFA, CAPTCHA bypass, or access-control circumvention. If institutional fetching returns login_required, ask the user to reauthenticate locally. After download, use read_paper_text for analysis; read paper:// resources only when layout or figures matter.";
+  "For one DOI, PMID, PMCID, arXiv ID, or exact title, use fetch_best_open_paper first. It tries configured legal sources in order and checks each PDF against the expected DOI or metadata. A mismatch is discarded; an inconclusive copy is labeled for manual inspection. If it returns selection_required, present the candidates and use download_open_paper only with the user's selected version_id. Pass site_id only when the user wants their configured institutional access tried after open sources fail. Never use these tools for bulk retrieval, credentials, MFA, CAPTCHA bypass, or access-control circumvention. If institutional fetching returns login_required, ask the user to reauthenticate locally. After download, use read_paper_text for analysis; read paper:// resources only when layout or figures matter.";
 
 async function main(): Promise<void> {
   const service = await PaperFetcherService.create(configPath(), stateRoot());
   const server = new McpServer(
-    { name: "openpaper-relay", version: "1.2.0" },
+    { name: "openpaper-relay", version: "1.3.0" },
     { instructions },
   );
 
@@ -45,7 +45,7 @@ async function main(): Promise<void> {
     {
       title: "Fetch the first available legal PDF",
       description:
-        "Try configured legal sources sequentially and stop after the first verified PDF. Returns an attempt log when sources fail. Ambiguous title results require user selection. An optional site_id enables the user's configured institutional source as the final DOI fallback.",
+        "Try configured legal sources sequentially and check downloaded PDFs against the expected DOI or metadata. Clear mismatches are discarded. If no source can be confirmed, one copy may be returned with verification.status=inconclusive for manual inspection. Ambiguous title results require user selection. An optional site_id enables the user's configured institutional source as the final DOI fallback.",
       inputSchema: {
         query: z.string().min(3).max(500).describe("DOI, PMCID, PMID, arXiv ID, or exact paper title"),
         site_id: z.string().min(2).max(64).optional().describe("Optional configured institutional adapter ID"),
@@ -71,7 +71,7 @@ async function main(): Promise<void> {
     {
       title: "Download one selected open-access PDF",
       description:
-        "Download exactly one open-access PDF using an opaque version_id previously returned by search_open_papers. Arbitrary URLs are not accepted.",
+        "Download and identity-check exactly one open-access PDF using an opaque version_id previously returned by search_open_papers. Arbitrary URLs are not accepted.",
       inputSchema: {
         version_id: z
           .string()
@@ -127,7 +127,7 @@ async function main(): Promise<void> {
     {
       title: "Read text from a fetched paper",
       description:
-        "Use this after fetch_authorized_paper returns downloaded. Extracts bounded text from the opaque paper_id without exposing local paths or accepting arbitrary files.",
+        "Use this after a fetch tool returns downloaded. Extracts bounded text from the opaque paper_id without exposing local paths or accepting arbitrary files.",
       inputSchema: {
         paper_id: z.string().regex(/^[a-f0-9]{64}$/).describe("Opaque paper ID returned by fetch_authorized_paper"),
       },
