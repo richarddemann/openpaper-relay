@@ -44,7 +44,11 @@ Then add it to your MCP client as a local command, using the absolute path on yo
 ```json
 {
   "command": "node",
-  "args": ["/absolute/path/to/openpaper-relay/dist/mcp-server.js"]
+  "args": ["/absolute/path/to/openpaper-relay/dist/mcp-server.js"],
+  "env": {
+    "OPENPAPER_RELAY_CONFIG": "/absolute/path/to/openpaper-relay/sites.local.json",
+    "OPENPAPER_RELAY_STATE_DIR": "/absolute/path/to/private/openpaper-state"
+  }
 }
 ```
 
