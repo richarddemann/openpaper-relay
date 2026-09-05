@@ -66,7 +66,20 @@ Add this server command to your MCP client, replacing the paths:
 
 Run the server locally; it has no network authentication.
 
-The optional [agent skill](skills/openpaper-relay/SKILL.md) checks Zotero and specified PDF folders before fetching. For Codex, copy `skills/openpaper-relay` into `~/.codex/skills/`.
+## Agent skill
+
+The [skill](skills/openpaper-relay/SKILL.md) tells an agent how to retrieve a paper, handle ambiguous matches, and read the downloaded PDF. It checks Zotero or specified PDF folders first when available.
+
+For Codex, copy the skill from this checkout:
+
+```sh
+mkdir -p ~/.codex/skills
+cp -R skills/openpaper-relay ~/.codex/skills/
+```
+
+Then ask: `Use $openpaper-relay to get the paper 10.1371/journal.ppat.1002485.`
+
+Connect the MCP server above as well; the skill contains instructions, not the downloader. For another agent that supports `SKILL.md`, install the same folder in its skill directory.
 
 ## Development
 

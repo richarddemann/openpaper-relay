@@ -1,4 +1,4 @@
 interface:
   display_name: "OpenPaper Relay"
   short_description: "Find research PDFs locally or online"
-  default_prompt: "Find this paper locally first, then use configured paper sources if needed."
+  default_prompt: "Use $openpaper-relay to find and retrieve this research paper."
