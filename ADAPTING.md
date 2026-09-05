@@ -1,6 +1,6 @@
-# Adapting an Authorized Browser Site
+# Add an institutional site
 
-Use this adapter only for a source you are authorized to access and automate. It covers the simple browser workflow “open DOI or article URL, then follow one PDF link/button.” For an API that searches by DOI/title and returns several versions, use [ADDING_SOURCES.md](ADDING_SOURCES.md) instead.
+The browser adapter opens a DOI or article URL and follows a PDF link or button using your institutional session. For an API that searches by DOI/title and returns several versions, use [ADDING_SOURCES.md](ADDING_SOURCES.md) instead.
 
 Each entry in `sites.local.json` is a small declarative adapter. No credentials or cookies belong in this file.
 
@@ -15,9 +15,9 @@ Using your ordinary browser, record the hostname—not the full signed URL—for
 5. PDF host or publisher CDN.
 6. Any hostname serving JavaScript or styles required for the download control.
 
-Enter each exact hostname under `allowedNetworkHosts`. `publisher.example.com` does not automatically permit `pdf.publisher.example.com`; list both. Do not add broad shared domains unless the exact host is genuinely required.
+Enter each exact hostname under `allowedNetworkHosts`. `publisher.example.com` does not automatically permit `pdf.publisher.example.com`; list both. Do not add broad shared domains unless the exact host is required.
 
-Then assign the narrower trust roles:
+Set the hosts accepted for article URLs and PDF downloads:
 
 - `allowedPaperUrlHosts`: publisher landing-page hosts a caller may supply directly. Do not include SSO, resolver, library, analytics, or generic static-resource hosts.
 - `allowedPdfHosts`: origins allowed to return the final PDF response or blob-backed download.
@@ -34,6 +34,12 @@ https://login.proxy.example.edu/login?url=https://doi.org/{doi}
 ```
 
 The template host and `startUrl` host must both be in `allowedNetworkHosts`.
+
+Install the browser once before logging in:
+
+```bash
+npx playwright install chromium
+```
 
 ## 3. Configure login detection
 
@@ -61,7 +67,7 @@ Prefer specific selectors exposed by the site, for example:
 
 Avoid generic selectors such as `a`, `button`, or text that appears in unrelated navigation.
 
-## 5. Diagnose a blocked site safely
+## 5. Troubleshoot
 
 First run `npm run login -- <site_id>`. If a page is incomplete or a redirect fails, use the browser's address bar and developer tools to identify the exact missing hostname, decide whether it is necessary and trustworthy, then add only that hostname.
 

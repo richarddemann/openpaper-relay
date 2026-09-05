@@ -169,3 +169,21 @@ test("a source rate limit stops its remaining versions before trying the next so
   assert.equal(events.includes("limited:First:v2"), false);
   assert.equal(events.includes("limited:Second:v1"), true);
 });
+
+test("DOI URLs and prefixes follow identifier lookup rather than title search", async () => {
+  const { normalizePaperQuery } = await import("../src/open-paper-resolver.js");
+  for (const query of ["https://doi.org/10.1234/example", "http://dx.doi.org/10.1234%2Fexample", "doi: 10.1234/example"]) {
+    assert.equal(normalizePaperQuery(query), "10.1234/example");
+    let received = "";
+    const resolver = new OpenPaperResolver([{
+      sourceName: "Fixture", accepts: () => false,
+      search: async (value) => { received = value; return { query: value, candidates: [] }; },
+      download: async () => { throw new Error("unused"); },
+    }]);
+    await resolver.fetchBest(query);
+    assert.equal(received, "10.1234/example");
+    await resolver.search(query);
+    assert.equal(received, "10.1234/example");
+  }
+  assert.equal(normalizePaperQuery("A paper title"), "A paper title");
+});

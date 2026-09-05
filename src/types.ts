@@ -23,6 +23,7 @@ export interface AppConfig {
   extractionTimeoutMs: number;
   extractionMaxOldSpaceMb: number;
   unpaywallEmail?: string;
+  openalexApiKey?: string;
   sites: SiteConfig[];
 }
 

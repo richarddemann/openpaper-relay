@@ -81,3 +81,8 @@ test("paper-input and PDF trust roles must be subsets of the network policy", as
     /must also appear in allowedNetworkHosts/,
   );
 });
+
+test("configuration accepts an OpenAlex key and rejects whitespace in it", async () => {
+  assert.equal((await loadConfig(await writeConfig({ openalexApiKey: "example-key" }))).openalexApiKey, "example-key");
+  await assert.rejects(loadConfig(await writeConfig({ openalexApiKey: "key\nother" })));
+});

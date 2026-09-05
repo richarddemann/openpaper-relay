@@ -80,6 +80,7 @@ const appSchema = z
     extractionTimeoutMs: z.number().int().min(1_000).max(120_000).default(30_000),
     extractionMaxOldSpaceMb: z.number().int().min(64).max(1024).default(256),
     unpaywallEmail: z.email().optional(),
+    openalexApiKey: z.string().trim().min(1).max(512).regex(/^[^\s]+$/).optional(),
     sites: z.array(siteSchema).default([]),
   })
   .strict()

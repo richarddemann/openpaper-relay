@@ -1,6 +1,6 @@
 ---
 name: openpaper-relay
-description: Find one requested research paper in Zotero or configured local PDFs first, then retrieve a lawful open-access or configured institutional copy. Use for DOI, PMID, PMCID, arXiv ID, exact-title, or inaccessible-paper requests.
+description: Find one requested research paper in Zotero or configured local PDFs first, then retrieve an open-access or configured institutional copy. Use for DOI, PMID, PMCID, arXiv ID, exact-title, or inaccessible-paper requests.
 ---
 
 # OpenPaper Relay

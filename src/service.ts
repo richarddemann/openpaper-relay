@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { OpenAlexClient } from "./openalex.js";
 import { ArxivClient } from "./arxiv.js";
 import { AuthorizedBrowser } from "./browser.js";
 import { findSite, loadConfig } from "./config.js";
@@ -6,7 +7,7 @@ import { EuropePmcClient, type DownloadedOpenPdf } from "./europe-pmc.js";
 import { DownloadedPaperVerifier } from "./download-verifier.js";
 import { PdfTextExtractor, type ExtractedText } from "./extractor.js";
 import { CrossProcessLock } from "./lock.js";
-import { OpenPaperResolver, type OpenPaperSource } from "./open-paper-resolver.js";
+import { OpenPaperResolver, normalizePaperQuery, type OpenPaperSource } from "./open-paper-resolver.js";
 import { PersistentSlidingWindowRateLimiter } from "./rate-limiter.js";
 import { PaperStore } from "./store.js";
 import type { PaperIdentityVerification } from "./paper-identity.js";
@@ -32,6 +33,7 @@ export class PaperFetcherService {
       new EuropePmcClient(config.maxPdfBytes),
       ...(config.unpaywallEmail ? [new UnpaywallClient(config.unpaywallEmail, config.maxPdfBytes)] : []),
       new ArxivClient(config.maxPdfBytes),
+      new OpenAlexClient(config.maxPdfBytes, config.openalexApiKey),
     ]);
   }
 
@@ -115,6 +117,7 @@ export class PaperFetcherService {
   }
 
   async fetchBestOpenPaper(query: string, siteId?: string) {
+    query = normalizePaperQuery(query);
     let firstInconclusive: CheckedDownloadedOpenPdf | undefined;
     const openResult = await this.openPapers.fetchBest(
       query,

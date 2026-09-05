@@ -11,6 +11,22 @@ const PMID_PATTERN = /^\d{5,10}$/;
 const PMCID_PATTERN = /^PMC\d+$/i;
 const ARXIV_PATTERN = /^(?:arxiv:)?(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[A-Z]{2})?\/\d{7})(?:v\d+)?$/i;
 
+export function normalizePaperQuery(query: string): string {
+  const value = query.trim();
+  const prefixed = value.replace(/^doi:\s*/i, "");
+  if (DOI_PATTERN.test(prefixed)) return prefixed;
+  try {
+    const url = new URL(value);
+    if (["https:", "http:"].includes(url.protocol) && ["doi.org", "dx.doi.org"].includes(url.hostname) && !url.username && !url.password) {
+      const doi = decodeURIComponent(url.pathname.slice(1));
+      if (DOI_PATTERN.test(doi)) return doi;
+    }
+  } catch {
+    // Plain titles and identifiers are not URLs.
+  }
+  return value;
+}
+
 export interface OpenPaperSource {
   readonly sourceName: string;
   accepts(versionId: string): boolean;
@@ -140,6 +156,7 @@ export class OpenPaperResolver {
     query: string,
     searchSource: OpenPaperSearch = (source, sourceQuery) => source.search(sourceQuery),
   ): Promise<ResolvedOpenPaperSearch> {
+    query = normalizePaperQuery(query);
     const candidateLists: OpenPaperCandidate[][] = [];
     const attempts: SourceAttempt[] = [];
     for (const source of this.sources) {
@@ -163,6 +180,7 @@ export class OpenPaperResolver {
     download: OpenPaperDownload = (source, versionId) => source.download(versionId),
     searchSource: OpenPaperSearch = (source, sourceQuery) => source.search(sourceQuery),
   ): Promise<BestOpenPaperResult> {
+    query = normalizePaperQuery(query);
     if (isExactIdentifier(query)) return this.fetchExactIdentifier(query.trim(), download, searchSource);
     const search = await this.search(query, searchSource);
     if (search.candidates.length === 0) {

@@ -1,9 +1,9 @@
 {
   "name": "openpaper-relay",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "type": "module",
-  "description": "A local MCP server that relays paper requests through lawful open and institution-authorized sources.",
+  "description": "Retrieve research PDFs from open repositories and configured institutional accounts.",
   "engines": {
     "node": ">=22"
   },
