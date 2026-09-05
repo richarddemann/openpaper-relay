@@ -1,6 +1,8 @@
 # OpenPaper Relay
 
-Download research papers from the command line or an MCP client. Accepts a DOI, PMID, PMCID, arXiv ID, or title and checks the PDF against the paper’s metadata.
+Find and download research papers with your AI agent. OpenPaper Relay searches available sources, checks the PDF against the requested paper’s metadata, and makes it available for the agent to read. You can also use it from the command line.
+
+Give it a DOI, PMID, PMCID, arXiv ID, or title.
 
 Tries Europe PMC, Unpaywall, arXiv, and OpenAlex in that order. Unpaywall needs an email address; the other sources work without configuration.
 
@@ -15,7 +17,43 @@ npm ci
 npm run build
 ```
 
-## Usage
+## Use with an AI agent
+
+Connect the MCP server so your agent can search for papers, download PDFs, and read their text. The optional skill below guides it through those steps.
+
+### MCP
+
+Add this server command to your MCP client, replacing the paths:
+
+```json
+{
+  "command": "node",
+  "args": ["/absolute/path/to/openpaper-relay/dist/mcp-server.js"],
+  "env": {
+    "OPENPAPER_RELAY_CONFIG": "/absolute/path/to/openpaper-relay/sites.local.json",
+    "OPENPAPER_RELAY_STATE_DIR": "/absolute/path/to/paper-storage"
+  }
+}
+```
+
+Run the server locally; it has no network authentication.
+
+### Agent skill
+
+The [skill](skills/openpaper-relay/SKILL.md) tells an agent how to retrieve a paper, handle ambiguous matches, and read the downloaded PDF. It checks Zotero or specified PDF folders first when available.
+
+For Codex, copy the skill from this checkout:
+
+```sh
+mkdir -p ~/.codex/skills
+cp -R skills/openpaper-relay ~/.codex/skills/
+```
+
+Then ask: `Use $openpaper-relay to get the paper 10.1371/journal.ppat.1002485.`
+
+Connect the MCP server above as well; the skill contains instructions, not the downloader. For another agent that supports `SKILL.md`, install the same folder in its skill directory.
+
+## Command line
 
 ```sh
 npm run fetch-best -- "10.1371/journal.ppat.1002485"
@@ -48,38 +86,6 @@ Optional settings go in `sites.local.json`, which Git ignores:
 OpenAlex downloads come from the publisher or repository links in its metadata. You can add `"openalexApiKey": "YOUR_KEY"` for a higher API allowance. Get a free key from [OpenAlex](https://openalex.org/settings/api).
 
 For institutional access, see [Add an institutional site](ADAPTING.md). Login happens in a local browser.
-
-## MCP
-
-Add this server command to your MCP client, replacing the paths:
-
-```json
-{
-  "command": "node",
-  "args": ["/absolute/path/to/openpaper-relay/dist/mcp-server.js"],
-  "env": {
-    "OPENPAPER_RELAY_CONFIG": "/absolute/path/to/openpaper-relay/sites.local.json",
-    "OPENPAPER_RELAY_STATE_DIR": "/absolute/path/to/paper-storage"
-  }
-}
-```
-
-Run the server locally; it has no network authentication.
-
-## Agent skill
-
-The [skill](skills/openpaper-relay/SKILL.md) tells an agent how to retrieve a paper, handle ambiguous matches, and read the downloaded PDF. It checks Zotero or specified PDF folders first when available.
-
-For Codex, copy the skill from this checkout:
-
-```sh
-mkdir -p ~/.codex/skills
-cp -R skills/openpaper-relay ~/.codex/skills/
-```
-
-Then ask: `Use $openpaper-relay to get the paper 10.1371/journal.ppat.1002485.`
-
-Connect the MCP server above as well; the skill contains instructions, not the downloader. For another agent that supports `SKILL.md`, install the same folder in its skill directory.
 
 ## Development
 
